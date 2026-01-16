@@ -1,4 +1,5 @@
 :root {
+    /* Dark Theme (Default) */
     --primary: #6366f1;
     --primary-hover: #4f46e5;
     --bg-dark: #0f172a;
@@ -12,6 +13,15 @@
     --font-heading: 'Outfit', sans-serif;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --radius: 12px;
+}
+
+/* Light Theme */
+body.theme-light {
+    --bg-dark: #f8f9fa;
+    --bg-card: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
 }
 
 /* Reset & Base */
@@ -150,6 +160,34 @@ body {
 .nav-links li.active {
     background: rgba(99, 102, 241, 0.1);
     color: var(--primary);
+}
+
+.theme-toggle {
+    margin-top: auto;
+    padding: 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-muted);
+    transition: 0.2s;
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+}
+
+.theme-toggle:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+}
+
+.sidebar.collapsed .theme-toggle {
+    justify-content: center;
+    padding: 1rem 0.5rem;
+}
+
+.sidebar.collapsed .theme-toggle .material-icons-round {
+    margin: 0;
 }
 
 .main-content {

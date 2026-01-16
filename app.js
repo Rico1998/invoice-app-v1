@@ -12,7 +12,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set default date to today
     document.getElementById('inp-date').valueAsDate = new Date();
     document.getElementById('inp-due-date').valueAsDate = new Date();
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.body.className = `theme-${savedTheme}`;
+    updateThemeIcon(savedTheme);
 });
+
+// --- Theme Toggle ---
+function toggleTheme() {
+    const currentTheme = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    document.body.className = `theme-${newTheme}`;
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const icon = document.getElementById('theme-icon');
+    const text = document.querySelector('.theme-toggle .nav-text');
+
+    if (theme === 'light') {
+        icon.textContent = 'dark_mode';
+        if (text) text.textContent = 'Dark Mode';
+    } else {
+        icon.textContent = 'light_mode';
+        if (text) text.textContent = 'Light Mode';
+    }
+}
 
 // --- Mobile Sidebar Toggle ---
 function toggleSidebar() {
