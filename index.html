@@ -30,8 +30,8 @@
         <div class="login-card">
             <div style="text-align: center; margin-bottom: 2rem;">
                 <span class="material-icons-round" style="font-size: 4rem; color: var(--primary);">cloud_queue</span>
-                <h1 style="margin-top: 1rem; color: var(--text-main);">Cloud Login</h1>
-                <p style="color: var(--text-muted);">Sign in to access your synced invoices</p>
+                <h1 style="margin-top: 1rem; color: var(--text-main);" id="auth-title">Cloud Login</h1>
+                <p style="color: var(--text-muted);" id="auth-subtitle">Sign in to access your synced invoices</p>
                 <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none;" id="login-error">
                 </p>
             </div>
@@ -50,8 +50,10 @@
                 </button>
             </form>
 
-            <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
-                Don't have an account? Ask admin to create one.
+            <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted);">
+                <span id="auth-switch-text">Don't have an account?</span>
+                <button class="btn-text" onclick="toggleAuthMode()"
+                    style="display: inline; padding: 0; font-size: 0.9rem;" id="btn-auth-switch">Create one</button>
             </div>
         </div>
     </div>

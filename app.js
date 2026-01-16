@@ -1,9 +1,10 @@
-import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where, orderBy } from './firebase.js';
+import { auth, db, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where, orderBy } from './firebase.js';
 
 // --- Global State ---
 const state = {
     invoices: [],
-    user: null
+    user: null,
+    isSignUp: false
 };
 
 // --- Initialization ---
@@ -42,17 +43,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorMsg = document.getElementById('login-error');
 
         try {
-            btn.innerHTML = 'Signing in...';
+            btn.innerHTML = state.isSignUp ? 'Creating Account...' : 'Signing in...';
             btn.disabled = true;
             errorMsg.style.display = 'none';
 
-            await signInWithEmailAndPassword(auth, email, password);
+            if (state.isSignUp) {
+                await createUserWithEmailAndPassword(auth, email, password);
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+            }
             // onAuthStateChanged will handle the rest
         } catch (error) {
             console.error(error);
-            errorMsg.textContent = 'Invalid email or password.';
+            let msg = 'Invalid email or password.';
+            if (error.code === 'auth/email-already-in-use') msg = 'Email already exists. Try signing in.';
+            if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.';
+
+            errorMsg.textContent = msg;
             errorMsg.style.display = 'block';
-            btn.innerHTML = 'Sign In';
+            btn.innerHTML = state.isSignUp ? 'Sign Up' : 'Sign In';
             btn.disabled = false;
         }
     });
@@ -63,6 +72,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inp-date').valueAsDate = new Date();
     document.getElementById('inp-due-date').valueAsDate = new Date();
 });
+
+// --- Auth UI Toggle ---
+window.toggleAuthMode = function () {
+    state.isSignUp = !state.isSignUp;
+
+    const title = document.getElementById('auth-title');
+    const subtitle = document.getElementById('auth-subtitle');
+    const btn = document.getElementById('btn-login');
+    const switchText = document.getElementById('auth-switch-text');
+    const switchBtn = document.getElementById('btn-auth-switch');
+    const errorMsg = document.getElementById('login-error');
+
+    errorMsg.style.display = 'none';
+
+    if (state.isSignUp) {
+        title.textContent = 'Create Account';
+        subtitle.textContent = 'Sign up to start syncing invoices';
+        btn.textContent = 'Sign Up';
+        switchText.textContent = 'Already have an account?';
+        switchBtn.textContent = 'Sign In';
+    } else {
+        title.textContent = 'Cloud Login';
+        subtitle.textContent = 'Sign in to access your synced invoices';
+        btn.textContent = 'Sign In';
+        switchText.textContent = "Don't have an account?";
+        switchBtn.textContent = 'Create one';
+    }
+}
 
 
 // --- Database Functions ---
