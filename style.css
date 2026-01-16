@@ -42,10 +42,9 @@ body {
     padding: 2rem;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease;
 }
 
-/* Mobile: Hide sidebar by default */
+/* Mobile: Hide sidebar by default, show with toggle */
 @media (max-width: 768px) {
     .sidebar {
         position: fixed;
@@ -54,6 +53,7 @@ body {
         height: 100vh;
         z-index: 1000;
         transform: translateX(-100%);
+        transition: transform 0.3s ease;
     }
 
     .sidebar.open {
