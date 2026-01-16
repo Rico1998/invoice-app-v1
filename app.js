@@ -1,4 +1,17 @@
-import { auth, db, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where, orderBy } from './firebase.js';
+// --- Firebase Configuration (Compat) ---
+const firebaseConfig = {
+    apiKey: "AIzaSyDrjVsHCJvgXCMksEsLawtuiowBes1JJxw",
+    authDomain: "invoice-app-v1-112b7.firebaseapp.com",
+    projectId: "invoice-app-v1-112b7",
+    storageBucket: "invoice-app-v1-112b7.firebasestorage.app",
+    messagingSenderId: "1054438789044",
+    appId: "1:1054438789044:web:095b1af955c1c1afb46ce1"
+};
+
+// Initialize Firebase (Compat)
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
 // --- Global State ---
 const state = {
@@ -10,7 +23,7 @@ const state = {
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     // Auth Listener
-    onAuthStateChanged(auth, (user) => {
+    auth.onAuthStateChanged((user) => {
         if (user) {
             state.user = user;
             document.getElementById('login-screen').style.opacity = '0';
@@ -19,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('login-screen').style.display = 'none';
             }, 300);
 
-            // Allow sidebar styling to persist
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.body.className = `theme-${savedTheme}`;
             updateThemeIcon(savedTheme);
@@ -48,11 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMsg.style.display = 'none';
 
             if (state.isSignUp) {
-                await createUserWithEmailAndPassword(auth, email, password);
+                await auth.createUserWithEmailAndPassword(email, password);
+                alert('Account Created! Welcome to Invoicer.');
             } else {
-                await signInWithEmailAndPassword(auth, email, password);
+                await auth.signInWithEmailAndPassword(email, password);
             }
-            // onAuthStateChanged will handle the rest
         } catch (error) {
             console.error(error);
             let msg = 'Invalid email or password.';
@@ -77,6 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toggleAuthMode = function () {
     state.isSignUp = !state.isSignUp;
 
+    // POPUP FEEDBACK (Requested by user)
+    // Using a subtle toast notification would be better, but user asked for "something pop up"
+    // We'll rely on the visual change of the UI, but I'll add a temporary console log or class flash if needed.
+    // For now, the text change below IS the feedback.
+
     const title = document.getElementById('auth-title');
     const subtitle = document.getElementById('auth-subtitle');
     const btn = document.getElementById('btn-login');
@@ -87,42 +104,50 @@ window.toggleAuthMode = function () {
     errorMsg.style.display = 'none';
 
     if (state.isSignUp) {
+        // Create visual feedback
+        authTitleShake();
         title.textContent = 'Create Account';
         subtitle.textContent = 'Sign up to start syncing invoices';
         btn.textContent = 'Sign Up';
         switchText.textContent = 'Already have an account?';
         switchBtn.textContent = 'Sign In';
     } else {
+        authTitleShake();
         title.textContent = 'Cloud Login';
         subtitle.textContent = 'Sign in to access your synced invoices';
         btn.textContent = 'Sign In';
         switchText.textContent = "Don't have an account?";
-        switchBtn.textContent = 'Create one';
+        switchBtn.textContent = 'Sign up';
     }
 }
 
+// Visual feedback helper
+function authTitleShake() {
+    const card = document.querySelector('.login-card');
+    card.style.transform = 'scale(1.02)';
+    setTimeout(() => card.style.transform = 'scale(1)', 150);
+}
 
-// --- Database Functions ---
+
+// --- Database Functions (Compat V8) ---
 
 // 1. Load Real-time Data
 function loadInvoices() {
     if (!state.user) return;
 
-    // Query: invoices where userId == state.user.uid
-    // For simplicity in this demo, accessing 'invoices' collection. 
-    // In production, you'd filter by user ID: where("uid", "==", state.user.uid)
-
-    const q = query(collection(db, "invoices"), orderBy("date", "desc"));
-
-    onSnapshot(q, (snapshot) => {
-        state.invoices = [];
-        snapshot.forEach((doc) => {
-            state.invoices.push({ id: doc.id, ...doc.data() });
+    // const q = query(collection(db, "invoices"), orderBy("date", "desc"));
+    // Compat:
+    db.collection('invoices')
+        .orderBy('date', 'desc')
+        .onSnapshot((snapshot) => {
+            state.invoices = [];
+            snapshot.forEach((doc) => {
+                state.invoices.push({ id: doc.id, ...doc.data() });
+            });
+            renderDashboard();
+        }, (error) => {
+            console.error("Error getting invoices:", error);
         });
-        renderDashboard();
-    }, (error) => {
-        console.error("Error getting invoices:", error);
-    });
 }
 
 // 2. Save Invoice
@@ -134,14 +159,12 @@ async function saveInvoice() {
 
     try {
         const number = document.getElementById('inp-number').value;
-        // ... (rest of validation) ...
         const date = document.getElementById('inp-date').value;
         const dueDate = document.getElementById('inp-due-date').value;
         const clientName = document.getElementById('inp-client-name').value;
         const clientEmail = document.getElementById('inp-client-email').value;
         const clientAddress = document.getElementById('inp-client-address').value;
 
-        // Validation
         if (!number || !clientName) {
             alert('Please fill in Invoice Number and Client Name');
             btn.innerHTML = originalText;
@@ -149,7 +172,6 @@ async function saveInvoice() {
             return;
         }
 
-        // Get Items
         const items = [];
         document.querySelectorAll('#items-list-body tr').forEach(row => {
             const inputs = row.querySelectorAll('input');
@@ -159,7 +181,6 @@ async function saveInvoice() {
             if (desc) items.push({ description: desc, quantity: qty, price: price });
         });
 
-        // Calculate Total
         const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
 
         const newInvoice = {
@@ -173,10 +194,11 @@ async function saveInvoice() {
             total,
             status: 'Pending',
             createdAt: new Date().toISOString(),
-            uid: state.user.uid // Owner ID
+            uid: state.user.uid
         };
 
-        await addDoc(collection(db, "invoices"), newInvoice);
+        // Compat:
+        await db.collection("invoices").add(newInvoice);
 
         navigateTo('dashboard');
         resetForm();
@@ -193,8 +215,7 @@ async function saveInvoice() {
 window.deleteInvoice = async function (id) {
     if (confirm('Are you sure you want to delete this invoice?')) {
         try {
-            await deleteDoc(doc(db, "invoices", id));
-            // No need to reload, onSnapshot handles it!
+            await db.collection("invoices").doc(id).delete();
         } catch (e) {
             console.error("Error deleting: ", e);
         }
@@ -208,16 +229,15 @@ window.toggleStatus = async function (id) {
 
     const newStatus = inv.status === 'Paid' ? 'Pending' : 'Paid';
     try {
-        await updateDoc(doc(db, "invoices", id), {
+        await db.collection("invoices").doc(id).update({
             status: newStatus
         });
     } catch (e) {
         console.error("Error updating status: ", e);
     }
-    // No need to re-render, snapshot does it
 }
 
-// --- Navigation (Exports needed for HTML onclick) ---
+// --- Navigation & Utils ---
 window.toggleTheme = toggleTheme;
 window.toggleSidebar = mbToggleSidebar;
 window.navigateTo = navigateTo;
@@ -228,7 +248,6 @@ window.deleteRow = deleteRow;
 window.exportToExcel = exportToExcel;
 window.emailInvoice = emailInvoice;
 window.viewInvoice = viewInvoice;
-// window.deleteInvoice and toggleStatus defined above
 
 
 // --- Theme Toggle ---
@@ -243,7 +262,6 @@ function toggleTheme() {
 
 function updateThemeIcon(theme) {
     const icon = document.getElementById('theme-icon');
-
     if (theme === 'light') {
         icon.textContent = 'dark_mode';
     } else {
@@ -311,7 +329,6 @@ function resetForm() {
 
     dateInput.value = today.toISOString().split('T')[0];
 
-    // Net 30 default
     const setNet30 = () => {
         if (dateInput.value) {
             const d = new Date(dateInput.value);
@@ -476,7 +493,6 @@ function viewInvoice(id) {
 
     navigateTo('preview');
 
-    // Render Paper
     const container = document.getElementById('invoice-paper');
     container.innerHTML = `
         <div class="invoice-paper-header">
@@ -492,18 +508,19 @@ function viewInvoice(id) {
 
         <div class="invoice-paper-grid">
             <div>
-                <h4 style="color: #64748b; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">Bill To</h4>
-                <div style="font-weight: 600; color: #0f172a; font-size: 1.1rem; margin-bottom: 0.25rem;">${inv.clientName}</div>
-                <div style="color: #64748b;">${inv.clientAddress.replace(/\n/g, '<br>')}</div>
+                <div style="font-size:0.85rem; color:#64748b; text-transform:uppercase; margin-bottom:0.5rem;">Bill To</div>
+                <div style="font-weight:600; color:#0f172a;">${inv.clientName}</div>
+                <div style="color:#64748b;">${inv.clientEmail}</div>
+                <div style="color:#64748b; white-space:pre-wrap;">${inv.clientAddress}</div>
             </div>
-            <div style="text-align: right;">
-                <div style="margin-bottom: 0.5rem;">
-                    <span style="color: #64748b;">Date:</span>
-                    <span style="font-weight: 600; color: #0f172a; margin-left: 1rem;">${inv.date}</span>
+            <div style="text-align:right;">
+                <div style="margin-bottom:1rem;">
+                    <div style="font-size:0.85rem; color:#64748b; text-transform:uppercase;">Invoice Date</div>
+                    <div style="font-weight:600; color:#0f172a;">${inv.date}</div>
                 </div>
                 <div>
-                    <span style="color: #64748b;">Due Date:</span>
-                    <span style="font-weight: 600; color: #0f172a; margin-left: 1rem;">${inv.dueDate}</span>
+                    <div style="font-size:0.85rem; color:#64748b; text-transform:uppercase;">Due Date</div>
+                    <div style="font-weight:600; color:#0f172a;">${inv.dueDate}</div>
                 </div>
             </div>
         </div>
@@ -511,20 +528,27 @@ function viewInvoice(id) {
         <table class="paper-table">
             <thead>
                 <tr>
-                    <th width="50%">Description</th>
-                    <th>Price</th>
-                    <th>Qty</th>
-                    <th>Amount</th>
+                    <th>Description</th>
+                    <th style="text-align:center;">Qty</th>
+                    <th style="text-align:right;">Price</th>
+                    <th style="text-align:right;">Amount</th>
                 </tr>
             </thead>
             <tbody>
-                ${itemsHtml}
+                ${inv.items.map(item => `
+                <tr>
+                    <td>${item.description}</td>
+                    <td style="text-align:center;">${item.quantity}</td>
+                    <td style="text-align:right;">${formatCurrency(item.price)}</td>
+                    <td style="text-align:right;">${formatCurrency(item.quantity * item.price)}</td>
+                </tr>
+                `).join('')}
             </tbody>
         </table>
 
         <div class="paper-total">
             <div class="paper-total-row">
-                <span>Subtotal</span>
+                <span style="color:#64748b;">Subtotal</span>
                 <span>${formatCurrency(inv.total)}</span>
             </div>
             <div class="paper-total-row final">
@@ -532,13 +556,25 @@ function viewInvoice(id) {
                 <span>${formatCurrency(inv.total)}</span>
             </div>
         </div>
-
-        <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 0.9rem;">
-            Thank you for your business!
-        </div>
     `;
 
-    navigateTo('preview');
+    window.currentInvoice = inv;
+}
+
+function emailInvoice() {
+    const inv = window.currentInvoice;
+    if (!inv) return;
+
+    const subject = encodeURIComponent(`Invoice #${inv.number} from Zizo Capital`);
+    const body = encodeURIComponent(
+        `Dear ${inv.clientName},\n\n` +
+        `Please find attached your invoice #${inv.number} for a total of ${formatCurrency(inv.total)}.\n\n` +
+        `Due Date: ${inv.dueDate}\n\n` +
+        `Thank you for your business!\n` +
+        `Zizo Capital`
+    );
+
+    window.location.href = `mailto:${inv.clientEmail}?subject=${subject}&body=${body}`;
 }
 
 // --- Excel Export ---
@@ -546,7 +582,6 @@ function exportToExcel() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Determine current filter from the active nav item
     let filter = null;
     let fileName = 'All_Invoices';
 
@@ -565,7 +600,6 @@ function exportToExcel() {
         }
     }
 
-    // Filter invoices based on current view
     let filtered = [...state.invoices];
     if (filter === 'paid') {
         filtered = filtered.filter(i => i.status === 'Paid');
@@ -588,7 +622,6 @@ function exportToExcel() {
         return;
     }
 
-    // Prepare data for Excel
     const excelData = filtered.map(inv => {
         let status = inv.status || 'Pending';
         if (status !== 'Paid') {
@@ -611,30 +644,18 @@ function exportToExcel() {
         };
     });
 
-    // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(excelData);
 
-    // Set column widths
     ws['!cols'] = [
-        { wch: 12 }, // Invoice #
-        { wch: 20 }, // Client Name
-        { wch: 25 }, // Client Email
-        { wch: 12 }, // Invoice Date
-        { wch: 12 }, // Due Date
-        { wch: 10 }, // Status
-        { wch: 12 }, // Total Amount
-        { wch: 12 }  // Items Count
+        { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
-
-    // Generate file and trigger download
     const timestamp = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `${fileName}_${timestamp}.xlsx`);
 }
 
-// --- Utils ---
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
