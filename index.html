@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Invoice Maker</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body class="theme-dark">
+    <div id="app">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="material-icons-round">receipt_long</span>
+                <h2>Invoicer</h2>
+            </div>
+            <ul class="nav-links">
+                <li class="active" onclick="navigateTo('dashboard')">
+                    <span class="material-icons-round">dashboard</span>
+                    Dashboard
+                </li>
+                <!-- Filters -->
+                <li onclick="navigateTo('dashboard', 'overdue')" style="padding-left: 2rem; font-size: 0.9em;">
+                    <span class="material-icons-round" style="color: var(--danger);">warning</span>
+                    Overdue
+                </li>
+                <li onclick="navigateTo('dashboard', 'pending')" style="padding-left: 2rem; font-size: 0.9em;">
+                    <span class="material-icons-round" style="color: #f59e0b;">hourglass_empty</span>
+                    Pending
+                </li>
+                <li onclick="navigateTo('dashboard', 'paid')" style="padding-left: 2rem; font-size: 0.9em;">
+                    <span class="material-icons-round" style="color: var(--success);">check_circle</span>
+                    Paid
+                </li>
+
+                <li onclick="createNewInvoice()">
+                    <span class="material-icons-round">add_circle</span>
+                    New Invoice
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- VIEW: DASHBOARD -->
+            <section id="view-dashboard" class="view active">
+                <header class="view-header">
+                    <h1>Dashboard</h1>
+                    <button class="btn-primary" onclick="createNewInvoice()">
+                        <span class="material-icons-round">add</span> Create Invoice
+                    </button>
+                </header>
+
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3>Total Invoices</h3>
+                        <p id="total-invoices-count">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Revenue</h3>
+                        <p id="total-revenue-amount">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="invoice-list-container">
+                    <h2>Invoice History</h2>
+                    <div id="invoice-list" class="invoice-list">
+                        <!-- Invoice Items will be injected here -->
+                        <div class="empty-state">
+                            <span class="material-icons-round">sentiment_dissatisfied</span>
+                            <p>No invoices found. Create one to get started!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: EDITOR (Create/Edit) -->
+            <section id="view-editor" class="view">
+                <header class="view-header">
+                    <h1 id="editor-title">New Invoice</h1>
+                    <div class="actions">
+                        <button class="btn-secondary" onclick="navigateTo('dashboard')">Cancel</button>
+                        <button class="btn-primary" onclick="saveInvoice()">Save Invoice</button>
+                    </div>
+                </header>
+
+                <form id="invoice-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Invoice Number</label>
+                            <input type="text" id="inp-number" placeholder="INV-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="inp-date">
+                        </div>
+                        <div class="form-group">
+                            <label>Due Date</label>
+                            <input type="date" id="inp-due-date">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Customer Details</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Client Name</label>
+                                <input type="text" id="inp-client-name" placeholder="John Doe">
+                            </div>
+                            <div class="form-group">
+                                <label>Client Email</label>
+                                <input type="email" id="inp-client-email" placeholder="john@example.com">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Address</label>
+                                <textarea id="inp-client-address" rows="2"
+                                    placeholder="123 Main St, City, Country"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Items</h3>
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th width="100">Qty</th>
+                                    <th width="120">Price</th>
+                                    <th width="120">Total</th>
+                                    <th width="50"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-list-body">
+                                <!-- Items injected here -->
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn-text" onclick="addItemRow()">+ Add Item</button>
+                    </div>
+
+                    <div class="invoice-summary">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span id="display-subtotal">$0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total:</span>
+                            <span id="display-total">$0.00</span>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <!-- VIEW: PREVIEW (Printable) -->
+            <section id="view-preview" class="view">
+                <header class="view-header no-print">
+                    <h1>Preview</h1>
+                    <div class="actions">
+                        <button class="btn-secondary" onclick="navigateTo('dashboard')">Back</button>
+                        <button class="btn-secondary" onclick="emailInvoice()">
+                            <span class="material-icons-round">email</span> Email Client
+                        </button>
+                        <button class="btn-primary" onclick="window.print()">Print / Save PDF</button>
+                    </div>
+                </header>
+
+                <div id="invoice-paper" class="invoice-paper">
+                    <!-- Invoice content rendered here for printing -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
