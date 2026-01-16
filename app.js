@@ -6,6 +6,15 @@ const state = {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Check Login
+    const isAuthenticated = sessionStorage.getItem('auth');
+    if (!isAuthenticated) {
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('app').style.filter = 'blur(5px)';
+    } else {
+        document.getElementById('app').style.filter = 'none';
+    }
+
     loadInvoices();
     renderDashboard();
 
@@ -17,6 +26,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.body.className = `theme-${savedTheme}`;
     updateThemeIcon(savedTheme);
+});
+
+// --- Auth ---
+function checkPin() {
+    const input = document.getElementById('inp-pin').value;
+    // Default PIN: 0000 (We can make this customizable later)
+    if (input === '0000') {
+        sessionStorage.setItem('auth', 'true');
+        document.getElementById('login-screen').style.opacity = '0';
+        document.getElementById('app').style.filter = 'none';
+        setTimeout(() => {
+            document.getElementById('login-screen').style.display = 'none';
+        }, 300);
+    } else {
+        alert('Incorrect PIN');
+        document.getElementById('inp-pin').value = '';
+    }
+}
+
+// Allow Enter key to submit PIN
+document.getElementById('inp-pin')?.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        checkPin();
+    }
 });
 
 // --- Theme Toggle ---
