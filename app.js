@@ -422,6 +422,99 @@ function viewInvoice(id) {
     navigateTo('preview');
 }
 
+// --- Excel Export ---
+function exportToExcel() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Determine current filter from the active nav item
+    let filter = null;
+    let fileName = 'All_Invoices';
+
+    const activeNav = document.querySelector('.nav-links li.active');
+    if (activeNav) {
+        const onclick = activeNav.getAttribute('onclick');
+        if (onclick && onclick.includes("'overdue'")) {
+            filter = 'overdue';
+            fileName = 'Overdue_Invoices';
+        } else if (onclick && onclick.includes("'pending'")) {
+            filter = 'pending';
+            fileName = 'Pending_Invoices';
+        } else if (onclick && onclick.includes("'paid'")) {
+            filter = 'paid';
+            fileName = 'Paid_Invoices';
+        }
+    }
+
+    // Filter invoices based on current view
+    let filtered = [...state.invoices];
+    if (filter === 'paid') {
+        filtered = filtered.filter(i => i.status === 'Paid');
+    } else if (filter === 'pending') {
+        filtered = filtered.filter(i => {
+            if (i.status === 'Paid') return false;
+            const due = new Date(i.dueDate); due.setHours(0, 0, 0, 0);
+            return due >= today;
+        });
+    } else if (filter === 'overdue') {
+        filtered = filtered.filter(i => {
+            if (i.status === 'Paid') return false;
+            const due = new Date(i.dueDate); due.setHours(0, 0, 0, 0);
+            return due < today;
+        });
+    }
+
+    if (filtered.length === 0) {
+        alert('No invoices to export in this category.');
+        return;
+    }
+
+    // Prepare data for Excel
+    const excelData = filtered.map(inv => {
+        let status = inv.status || 'Pending';
+        if (status !== 'Paid') {
+            const dueDate = new Date(inv.dueDate);
+            dueDate.setHours(0, 0, 0, 0);
+            if (dueDate < today) {
+                status = 'Overdue';
+            }
+        }
+
+        return {
+            'Invoice #': inv.number,
+            'Client Name': inv.clientName,
+            'Client Email': inv.clientEmail,
+            'Invoice Date': inv.date,
+            'Due Date': inv.dueDate,
+            'Status': status,
+            'Total Amount': inv.total,
+            'Items Count': inv.items.length
+        };
+    });
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 12 }, // Invoice #
+        { wch: 20 }, // Client Name
+        { wch: 25 }, // Client Email
+        { wch: 12 }, // Invoice Date
+        { wch: 12 }, // Due Date
+        { wch: 10 }, // Status
+        { wch: 12 }, // Total Amount
+        { wch: 12 }  // Items Count
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+
+    // Generate file and trigger download
+    const timestamp = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `${fileName}_${timestamp}.xlsx`);
+}
+
 // --- Utils ---
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {

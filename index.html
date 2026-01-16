@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body class="theme-dark">
@@ -63,9 +65,14 @@
             <section id="view-dashboard" class="view active">
                 <header class="view-header">
                     <h1>Dashboard</h1>
-                    <button class="btn-primary" onclick="createNewInvoice()">
-                        <span class="material-icons-round">add</span> Create Invoice
-                    </button>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn-secondary" onclick="exportToExcel()" id="export-btn">
+                            <span class="material-icons-round">download</span> Export to Excel
+                        </button>
+                        <button class="btn-primary" onclick="createNewInvoice()">
+                            <span class="material-icons-round">add</span> Create Invoice
+                        </button>
+                    </div>
                 </header>
 
                 <div class="stats-container">
