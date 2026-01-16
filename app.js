@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inp-due-date').valueAsDate = new Date();
 });
 
+// --- Mobile Sidebar Toggle ---
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+}
+
 // --- Navigation ---
 function navigateTo(viewId, filter = null) {
     // Hide all views
@@ -33,6 +41,11 @@ function navigateTo(viewId, filter = null) {
         if (navItem) navItem.classList.add('active');
 
         renderDashboard(filter);
+    }
+
+    // Close mobile sidebar after navigation
+    if (window.innerWidth <= 768) {
+        toggleSidebar();
     }
 }
 
