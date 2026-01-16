@@ -21,14 +21,21 @@ function toggleSidebar() {
 
     if (!sidebar || !overlay) return;
 
-    const isOpen = sidebar.classList.contains('open');
+    const isMobile = window.innerWidth <= 768;
 
-    if (isOpen) {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('show');
+    if (isMobile) {
+        // Mobile: toggle 'open' class and show overlay
+        const isOpen = sidebar.classList.contains('open');
+        if (isOpen) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+        } else {
+            sidebar.classList.add('open');
+            overlay.classList.add('show');
+        }
     } else {
-        sidebar.classList.add('open');
-        overlay.classList.add('show');
+        // Desktop: toggle 'collapsed' class (no overlay)
+        sidebar.classList.toggle('collapsed');
     }
 }
 

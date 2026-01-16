@@ -42,37 +42,62 @@ body {
     padding: 2rem;
     display: flex;
     flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    transition: transform 0.3s ease;
 }
 
-/* Mobile: Hide sidebar by default, show with toggle */
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.show {
+    display: block;
+}
+
+/* Desktop: adjust main content when sidebar is visible */
+@media (min-width: 769px) {
+    .main-content {
+        margin-left: 260px;
+        transition: margin-left 0.3s ease;
+    }
+
+    .sidebar.collapsed~.main-content {
+        margin-left: 0;
+    }
+
+    .sidebar-overlay {
+        display: none !important;
+        /* No overlay on desktop */
+    }
+}
+
+/* Mobile: sidebar hidden by default */
 @media (max-width: 768px) {
     .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        z-index: 1000;
         transform: translateX(-100%);
-        transition: transform 0.3s ease;
     }
 
     .sidebar.open {
         transform: translateX(0);
     }
 
-    .sidebar-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 999;
-    }
-
-    .sidebar-overlay.show {
-        display: block;
+    .sidebar.collapsed {
+        transform: translateX(-100%);
     }
 }
 
@@ -114,7 +139,7 @@ body {
 }
 
 .mobile-menu-btn {
-    display: none;
+    display: block;
     position: fixed;
     top: 1rem;
     left: 1rem;
@@ -139,10 +164,6 @@ body {
 }
 
 @media (max-width: 768px) {
-    .mobile-menu-btn {
-        display: block;
-    }
-
     .main-content {
         padding: 4rem 1rem 1rem 1rem;
     }
