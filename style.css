@@ -170,15 +170,15 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
-    color: var(--text-muted);
+    color: #f59e0b;
     transition: 0.2s;
     border-top: 1px solid var(--border);
     padding-top: 2rem;
 }
 
 .theme-toggle:hover {
-    background: rgba(99, 102, 241, 0.1);
-    color: var(--primary);
+    background: rgba(245, 158, 11, 0.1);
+    color: #fb923c;
 }
 
 .sidebar.collapsed .theme-toggle {
