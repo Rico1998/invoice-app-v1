@@ -53,25 +53,38 @@ body {
 .sidebar.collapsed {
     width: 80px;
     padding: 1rem 0.5rem;
+    overflow: hidden;
 }
 
-.sidebar.collapsed .logo h2,
-.sidebar.collapsed .nav-links li span:not(.material-icons-round) {
+.sidebar.collapsed .logo h2 {
     display: none;
+}
+
+.sidebar.collapsed .nav-links li {
+    justify-content: center;
+    padding: 1rem 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Hide all text nodes in nav links, keep only icons */
+.sidebar.collapsed .nav-links li::after {
+    content: none;
+}
+
+.sidebar.collapsed .nav-links li {
+    font-size: 0;
+    line-height: 0;
 }
 
 .sidebar.collapsed .logo {
     justify-content: center;
 }
 
-.sidebar.collapsed .nav-links li {
-    justify-content: center;
-    padding: 1rem 0.5rem;
-    font-size: 0;
-}
-
 .sidebar.collapsed .nav-links li .material-icons-round {
     margin: 0;
+    font-size: 24px;
+    line-height: 24px;
 }
 
 .sidebar-overlay {
