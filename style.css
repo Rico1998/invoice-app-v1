@@ -169,16 +169,22 @@ body {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    color: #f59e0b;
+    justify-content: center;
+    background: #f59e0b;
+    color: white;
     transition: 0.2s;
     border-top: 1px solid var(--border);
-    padding-top: 2rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
 }
 
 .theme-toggle:hover {
-    background: rgba(245, 158, 11, 0.1);
-    color: #fb923c;
+    background: #fb923c;
+    transform: scale(1.05);
+}
+
+.theme-toggle .material-icons-round {
+    margin: 0;
 }
 
 .sidebar.collapsed .theme-toggle {

@@ -31,14 +31,11 @@ function toggleTheme() {
 
 function updateThemeIcon(theme) {
     const icon = document.getElementById('theme-icon');
-    const text = document.querySelector('.theme-toggle .nav-text');
 
     if (theme === 'light') {
         icon.textContent = 'dark_mode';
-        if (text) text.textContent = 'Dark Mode';
     } else {
         icon.textContent = 'light_mode';
-        if (text) text.textContent = 'Light Mode';
     }
 }
 
