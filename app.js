@@ -1,56 +1,198 @@
-// --- State Management ---
+import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where, orderBy } from './firebase.js';
+
+// --- Global State ---
 const state = {
     invoices: [],
-    currentInvoice: null
+    user: null
 };
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Check Login
-    const isAuthenticated = sessionStorage.getItem('auth');
-    if (!isAuthenticated) {
-        document.getElementById('login-screen').style.display = 'flex';
-        document.getElementById('app').style.filter = 'blur(5px)';
-    } else {
-        document.getElementById('app').style.filter = 'none';
-    }
+    // Auth Listener
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            state.user = user;
+            document.getElementById('login-screen').style.opacity = '0';
+            document.getElementById('app').style.filter = 'none';
+            setTimeout(() => {
+                document.getElementById('login-screen').style.display = 'none';
+            }, 300);
 
-    loadInvoices();
+            // Allow sidebar styling to persist
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.className = `theme-${savedTheme}`;
+            updateThemeIcon(savedTheme);
+
+            // Start Listening to DB
+            loadInvoices();
+        } else {
+            state.user = null;
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('login-screen').style.opacity = '1';
+            document.getElementById('app').style.filter = 'blur(5px)';
+        }
+    });
+
+    // Login Form Handler
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('inp-email').value;
+        const password = document.getElementById('inp-password').value;
+        const btn = document.getElementById('btn-login');
+        const errorMsg = document.getElementById('login-error');
+
+        try {
+            btn.innerHTML = 'Signing in...';
+            btn.disabled = true;
+            errorMsg.style.display = 'none';
+
+            await signInWithEmailAndPassword(auth, email, password);
+            // onAuthStateChanged will handle the rest
+        } catch (error) {
+            console.error(error);
+            errorMsg.textContent = 'Invalid email or password.';
+            errorMsg.style.display = 'block';
+            btn.innerHTML = 'Sign In';
+            btn.disabled = false;
+        }
+    });
+
     renderDashboard();
 
     // Set default date to today
     document.getElementById('inp-date').valueAsDate = new Date();
     document.getElementById('inp-due-date').valueAsDate = new Date();
-
-    // Load saved theme
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.body.className = `theme-${savedTheme}`;
-    updateThemeIcon(savedTheme);
 });
 
-// --- Auth ---
-function checkPin() {
-    const input = document.getElementById('inp-pin').value;
-    // Default PIN: 0000 (We can make this customizable later)
-    if (input === '0000') {
-        sessionStorage.setItem('auth', 'true');
-        document.getElementById('login-screen').style.opacity = '0';
-        document.getElementById('app').style.filter = 'none';
-        setTimeout(() => {
-            document.getElementById('login-screen').style.display = 'none';
-        }, 300);
-    } else {
-        alert('Incorrect PIN');
-        document.getElementById('inp-pin').value = '';
+
+// --- Database Functions ---
+
+// 1. Load Real-time Data
+function loadInvoices() {
+    if (!state.user) return;
+
+    // Query: invoices where userId == state.user.uid
+    // For simplicity in this demo, accessing 'invoices' collection. 
+    // In production, you'd filter by user ID: where("uid", "==", state.user.uid)
+
+    const q = query(collection(db, "invoices"), orderBy("date", "desc"));
+
+    onSnapshot(q, (snapshot) => {
+        state.invoices = [];
+        snapshot.forEach((doc) => {
+            state.invoices.push({ id: doc.id, ...doc.data() });
+        });
+        renderDashboard();
+    }, (error) => {
+        console.error("Error getting invoices:", error);
+    });
+}
+
+// 2. Save Invoice
+async function saveInvoice() {
+    const btn = document.querySelector('#view-editor .btn-primary');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Saving...';
+    btn.disabled = true;
+
+    try {
+        const number = document.getElementById('inp-number').value;
+        // ... (rest of validation) ...
+        const date = document.getElementById('inp-date').value;
+        const dueDate = document.getElementById('inp-due-date').value;
+        const clientName = document.getElementById('inp-client-name').value;
+        const clientEmail = document.getElementById('inp-client-email').value;
+        const clientAddress = document.getElementById('inp-client-address').value;
+
+        // Validation
+        if (!number || !clientName) {
+            alert('Please fill in Invoice Number and Client Name');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        // Get Items
+        const items = [];
+        document.querySelectorAll('#items-list-body tr').forEach(row => {
+            const inputs = row.querySelectorAll('input');
+            const desc = inputs[0].value;
+            const qty = parseFloat(inputs[1].value) || 0;
+            const price = parseFloat(inputs[2].value) || 0;
+            if (desc) items.push({ description: desc, quantity: qty, price: price });
+        });
+
+        // Calculate Total
+        const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+
+        const newInvoice = {
+            number,
+            date,
+            dueDate,
+            clientName,
+            clientEmail,
+            clientAddress,
+            items,
+            total,
+            status: 'Pending',
+            createdAt: new Date().toISOString(),
+            uid: state.user.uid // Owner ID
+        };
+
+        await addDoc(collection(db, "invoices"), newInvoice);
+
+        navigateTo('dashboard');
+        resetForm();
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        alert('Failed to save invoice. See console.');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 
-// Allow Enter key to submit PIN
-document.getElementById('inp-pin')?.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        checkPin();
+// 3. Delete Invoice
+window.deleteInvoice = async function (id) {
+    if (confirm('Are you sure you want to delete this invoice?')) {
+        try {
+            await deleteDoc(doc(db, "invoices", id));
+            // No need to reload, onSnapshot handles it!
+        } catch (e) {
+            console.error("Error deleting: ", e);
+        }
     }
-});
+}
+
+// 4. Toggle Status
+window.toggleStatus = async function (id) {
+    const inv = state.invoices.find(i => i.id === id);
+    if (!inv) return;
+
+    const newStatus = inv.status === 'Paid' ? 'Pending' : 'Paid';
+    try {
+        await updateDoc(doc(db, "invoices", id), {
+            status: newStatus
+        });
+    } catch (e) {
+        console.error("Error updating status: ", e);
+    }
+    // No need to re-render, snapshot does it
+}
+
+// --- Navigation (Exports needed for HTML onclick) ---
+window.toggleTheme = toggleTheme;
+window.toggleSidebar = mbToggleSidebar;
+window.navigateTo = navigateTo;
+window.createNewInvoice = createNewInvoice;
+window.saveInvoice = saveInvoice;
+window.addItemRow = addItemRow;
+window.deleteRow = deleteRow;
+window.exportToExcel = exportToExcel;
+window.emailInvoice = emailInvoice;
+window.viewInvoice = viewInvoice;
+// window.deleteInvoice and toggleStatus defined above
+
 
 // --- Theme Toggle ---
 function toggleTheme() {
@@ -73,7 +215,7 @@ function updateThemeIcon(theme) {
 }
 
 // --- Mobile Sidebar Toggle ---
-function toggleSidebar() {
+function mbToggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
 
@@ -82,7 +224,6 @@ function toggleSidebar() {
     const isMobile = window.innerWidth <= 768;
 
     if (isMobile) {
-        // Mobile: toggle 'open' class and show overlay
         const isOpen = sidebar.classList.contains('open');
         if (isOpen) {
             sidebar.classList.remove('open');
@@ -92,21 +233,17 @@ function toggleSidebar() {
             overlay.classList.add('show');
         }
     } else {
-        // Desktop: toggle 'collapsed' class (no overlay)
         sidebar.classList.toggle('collapsed');
     }
 }
 
 // --- Navigation ---
 function navigateTo(viewId, filter = null) {
-    // Hide all views
     document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-links li').forEach(el => el.classList.remove('active'));
 
-    // Show target view
     document.getElementById(`view-${viewId}`).classList.add('active');
 
-    // Update nav active state (find based on onclick attribute)
     if (viewId === 'dashboard') {
         const selector = filter
             ? `.nav-links li[onclick="navigateTo('dashboard', '${filter}')"]`
@@ -118,31 +255,81 @@ function navigateTo(viewId, filter = null) {
         renderDashboard(filter);
     }
 
-    // Close mobile sidebar after navigation
-    const sidebar = document.querySelector('.sidebar');
-    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('open')) {
-        toggleSidebar();
+    if (window.innerWidth <= 768) {
+        mbToggleSidebar();
     }
 }
 
 function createNewInvoice() {
-    state.currentInvoice = null; // Reset for new
     resetForm();
     navigateTo('editor');
-    document.getElementById('editor-title').textContent = 'New Invoice';
 }
 
-// --- Data Persistence ---
-function loadInvoices() {
-    const stored = localStorage.getItem('invoices');
-    if (stored) {
-        state.invoices = JSON.parse(stored);
+function resetForm() {
+    document.getElementById('inp-number').value = `INV-${String(state.invoices.length + 1).padStart(3, '0')}`;
+
+    const today = new Date();
+    const dateInput = document.getElementById('inp-date');
+    const dueInput = document.getElementById('inp-due-date');
+
+    dateInput.value = today.toISOString().split('T')[0];
+
+    // Net 30 default
+    const setNet30 = () => {
+        if (dateInput.value) {
+            const d = new Date(dateInput.value);
+            d.setDate(d.getDate() + 30);
+            dueInput.value = d.toISOString().split('T')[0];
+        }
+    };
+
+    setNet30();
+    dateInput.onchange = setNet30;
+
+    document.getElementById('inp-client-name').value = '';
+    document.getElementById('inp-client-email').value = '';
+    document.getElementById('inp-client-address').value = '';
+
+    document.getElementById('items-list-body').innerHTML = '';
+    addItemRow();
+    calculateTotal();
+}
+
+function addItemRow() {
+    const tbody = document.getElementById('items-list-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" placeholder="Item description"></td>
+        <td><input type="number" value="1" min="1" oninput="calculateTotal()"></td>
+        <td><input type="number" value="0" min="0" step="0.01" oninput="calculateTotal()"></td>
+        <td><span class="row-total">$0.00</span></td>
+        <td><button type="button" class="btn-danger-icon" onclick="deleteRow(this)">×</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function deleteRow(btn) {
+    const row = btn.closest('tr');
+    if (document.querySelectorAll('#items-list-body tr').length > 1) {
+        row.remove();
+        calculateTotal();
     }
 }
 
-function saveInvoicesToStorage() {
-    localStorage.setItem('invoices', JSON.stringify(state.invoices));
-    renderDashboard(); // Refresh dashboard stats
+function calculateTotal() {
+    let subtotal = 0;
+    document.querySelectorAll('#items-list-body tr').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const qty = parseFloat(inputs[1].value) || 0;
+        const price = parseFloat(inputs[2].value) || 0;
+        const total = qty * price;
+
+        row.querySelector('.row-total').textContent = formatCurrency(total);
+        subtotal += total;
+    });
+
+    document.getElementById('display-subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('display-total').textContent = formatCurrency(subtotal);
 }
 
 // --- Dashboard Logic ---
@@ -150,16 +337,14 @@ function renderDashboard(filter = null) {
     const listEl = document.getElementById('invoice-list');
     const totalCountEl = document.getElementById('total-invoices-count');
     const totalRevenueEl = document.getElementById('total-revenue-amount');
-    const headerTitle = document.querySelector('#view-dashboard h2'); // Invoice History header
+    const headerTitle = document.querySelector('#view-dashboard h2');
 
-    // Base Title
     let title = 'Invoice History';
     if (filter === 'overdue') title = 'Overdue Invoices (Action Required)';
     if (filter === 'pending') title = 'Pending Invoices';
     if (filter === 'paid') title = 'Paid Invoices';
     if (headerTitle) headerTitle.textContent = title;
 
-    // Filter Logic
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -170,7 +355,7 @@ function renderDashboard(filter = null) {
         filtered = filtered.filter(i => {
             if (i.status === 'Paid') return false;
             const due = new Date(i.dueDate); due.setHours(0, 0, 0, 0);
-            return due >= today; // Not yet overdue
+            return due >= today;
         });
     } else if (filter === 'overdue') {
         filtered = filtered.filter(i => {
@@ -180,23 +365,16 @@ function renderDashboard(filter = null) {
         });
     }
 
-    // Stats (Show stats for the filtered view or global? Usually global is less confusing, but local is more relevant to the view. Let's keep global stats but filter list.)
-    // Actually user might want to see how much is overdue. Let's show stats for the FILTERED list if a filter is active.
-
     totalCountEl.textContent = filtered.length;
     const totalRevenue = filtered.reduce((sum, inv) => sum + inv.total, 0);
     totalRevenueEl.textContent = formatCurrency(totalRevenue);
 
-    // Sorting
-    // Default: Date Descending (Newest first)
-    // Overdue: Due Date Ascending (Most overdue/oldest due date first)
     if (filter === 'overdue') {
         filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     } else {
         filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
 
-    // List
     listEl.innerHTML = '';
     if (filtered.length === 0) {
         listEl.innerHTML = `
@@ -212,7 +390,6 @@ function renderDashboard(filter = null) {
         const el = document.createElement('div');
         el.className = 'invoice-item';
 
-        // Status Logic
         let status = inv.status || 'Pending';
         let statusClass = 'status-pending';
         let displayStatus = status;
@@ -220,10 +397,8 @@ function renderDashboard(filter = null) {
         if (status === 'Paid') {
             statusClass = 'status-paid';
         } else {
-            // Check if overdue
             const dueDate = new Date(inv.dueDate);
-            dueDate.setHours(0, 0, 0, 0); // normalize
-
+            dueDate.setHours(0, 0, 0, 0);
             if (dueDate < today) {
                 statusClass = 'status-overdue';
                 displayStatus = 'Overdue';
@@ -232,7 +407,6 @@ function renderDashboard(filter = null) {
 
         const toggleLabel = status === 'Paid' ? 'Paid' : 'Mark Paid';
         const toggleIcon = status === 'Paid' ? 'check_circle' : 'radio_button_unchecked';
-        // If overdue, we still show "Mark Paid" button, but the badge is red.
 
         el.innerHTML = `
             <div class="invoice-info">
@@ -259,165 +433,15 @@ function renderDashboard(filter = null) {
     });
 }
 
-// --- Invoice Editor Logic ---
-function resetForm() {
-    document.getElementById('inp-number').value = `INV-${String(state.invoices.length + 1).padStart(3, '0')}`;
-
-    // Dates - Default Net 30
-    // Dates - Default Net 30
-    const today = new Date();
-    const dateInput = document.getElementById('inp-date');
-    const dueInput = document.getElementById('inp-due-date');
-
-    dateInput.value = today.toISOString().split('T')[0];
-
-    const setNet30 = () => {
-        if (dateInput.value) {
-            const d = new Date(dateInput.value);
-            d.setDate(d.getDate() + 30);
-            dueInput.value = d.toISOString().split('T')[0];
-        }
-    };
-
-    setNet30(); // Set initial
-    dateInput.onchange = setNet30; // Update when user changes date
-
-    document.getElementById('inp-client-name').value = '';
-    document.getElementById('inp-client-email').value = '';
-    document.getElementById('inp-client-address').value = '';
-
-    document.getElementById('items-list-body').innerHTML = '';
-    addItemRow(); // Add one empty row
-    calculateTotal();
-}
-
-function addItemRow(data = {}) {
-    const tbody = document.getElementById('items-list-body');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td><input type="text" placeholder="Item description" class="inp-desc" value="${data.desc || ''}"></td>
-        <td><input type="number" placeholder="1" class="inp-qty" value="${data.qty || 1}" min="1" oninput="calculateTotal()"></td>
-        <td><input type="number" placeholder="0.00" class="inp-price" value="${data.price || ''}" min="0" step="0.01" oninput="calculateTotal()"></td>
-        <td class="row-total">$0.00</td>
-        <td>
-            <button type="button" class="btn-danger-icon" onclick="this.closest('tr').remove(); calculateTotal()">
-                <span class="material-icons-round">close</span>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
-    calculateTotal();
-}
-
-function calculateTotal() {
-    const rows = document.querySelectorAll('#items-list-body tr');
-    let subtotal = 0;
-
-    rows.forEach(row => {
-        const qty = parseFloat(row.querySelector('.inp-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.inp-price').value) || 0;
-        const total = qty * price;
-        row.querySelector('.row-total').textContent = formatCurrency(total);
-        subtotal += total;
-    });
-
-    document.getElementById('display-subtotal').textContent = formatCurrency(subtotal);
-    document.getElementById('display-total').textContent = formatCurrency(subtotal); // No tax for now
-    return subtotal;
-}
-
-function saveInvoice() {
-    const id = state.currentInvoice ? state.currentInvoice.id : Date.now().toString();
-
-    const items = [];
-    document.querySelectorAll('#items-list-body tr').forEach(row => {
-        items.push({
-            desc: row.querySelector('.inp-desc').value,
-            qty: parseFloat(row.querySelector('.inp-qty').value) || 0,
-            price: parseFloat(row.querySelector('.inp-price').value) || 0
-        });
-    });
-
-    const invoice = {
-        id,
-        number: document.getElementById('inp-number').value,
-        date: document.getElementById('inp-date').value,
-        dueDate: document.getElementById('inp-due-date').value,
-        clientName: document.getElementById('inp-client-name').value,
-        clientEmail: document.getElementById('inp-client-email').value,
-        clientAddress: document.getElementById('inp-client-address').value,
-        clientAddress: document.getElementById('inp-client-address').value,
-        items,
-        total: calculateTotal(),
-        status: state.currentInvoice ? state.currentInvoice.status : 'Pending'
-    };
-
-    if (state.currentInvoice) {
-        const idx = state.invoices.findIndex(i => i.id === id);
-        state.invoices[idx] = invoice;
-    } else {
-        state.invoices.push(invoice);
-    }
-
-    saveInvoicesToStorage();
-    navigateTo('dashboard');
-}
-
-function deleteInvoice(id) {
-    if (confirm('Are you sure you want to delete this invoice?')) {
-        state.invoices = state.invoices.filter(i => i.id !== id);
-        saveInvoicesToStorage();
-    }
-}
-
-// --- Preview / Print Logic ---
-function emailInvoice(id) {
-    // If called without ID (e.g. from preview button), use current
-    const inv = id ? state.invoices.find(i => i.id === id) : state.currentInvoice;
-
-    if (!inv) return;
-    if (!inv.clientEmail) {
-        alert('Please add a client email to this invoice first to use this feature.');
-        return;
-    }
-
-    const subject = encodeURIComponent(`Invoice #${inv.number}`);
-    const body = encodeURIComponent(
-        `Dear ${inv.clientName},\n\n` +
-        `Please find attached your invoice #${inv.number} for a total of ${formatCurrency(inv.total)}.\n\n` +
-        `Due Date: ${inv.dueDate}\n\n` +
-        `Thank you for your business!\n` +
-        `Zizo Capital`
-    );
-
-    window.location.href = `mailto:${inv.clientEmail}?subject=${subject}&body=${body}`;
-}
-
-function toggleStatus(id) {
-    const inv = state.invoices.find(i => i.id === id);
-    if (inv) {
-        inv.status = (inv.status === 'Paid') ? 'Pending' : 'Paid';
-        saveInvoicesToStorage();
-    }
-}
-
 function viewInvoice(id) {
     const inv = state.invoices.find(i => i.id === id);
     if (!inv) return;
 
-    state.currentInvoice = inv;
-    const paper = document.getElementById('invoice-paper');
+    navigateTo('preview');
 
-    const itemsHtml = inv.items.map(item => `
-        <tr>
-            <td>${item.desc}</td>
-            <td>${formatCurrency(item.price)}</td>
-            <td>${item.qty}</td>
-            <td>${formatCurrency(item.price * item.qty)}</td>
-        </tr>
-    `).join('');
-
-    paper.innerHTML = `
+    // Render Paper
+    const container = document.getElementById('invoice-paper');
+    container.innerHTML = `
         <div class="invoice-paper-header">
             <div>
                 <div class="invoice-paper-title">INVOICE</div>
