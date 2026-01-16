@@ -33,25 +33,25 @@
             <ul class="nav-links">
                 <li class="active" onclick="navigateTo('dashboard')">
                     <span class="material-icons-round">dashboard</span>
-                    Dashboard
+                    <span class="nav-text">Dashboard</span>
                 </li>
                 <!-- Filters -->
                 <li onclick="navigateTo('dashboard', 'overdue')" style="padding-left: 2rem; font-size: 0.9em;">
                     <span class="material-icons-round" style="color: var(--danger);">warning</span>
-                    Overdue
+                    <span class="nav-text">Overdue</span>
                 </li>
                 <li onclick="navigateTo('dashboard', 'pending')" style="padding-left: 2rem; font-size: 0.9em;">
                     <span class="material-icons-round" style="color: #f59e0b;">hourglass_empty</span>
-                    Pending
+                    <span class="nav-text">Pending</span>
                 </li>
                 <li onclick="navigateTo('dashboard', 'paid')" style="padding-left: 2rem; font-size: 0.9em;">
                     <span class="material-icons-round" style="color: var(--success);">check_circle</span>
-                    Paid
+                    <span class="nav-text">Paid</span>
                 </li>
 
                 <li onclick="createNewInvoice()">
                     <span class="material-icons-round">add_circle</span>
-                    New Invoice
+                    <span class="nav-text">New Invoice</span>
                 </li>
             </ul>
         </nav>
